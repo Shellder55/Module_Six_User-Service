@@ -5,24 +5,28 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import userapi.controller.UserController;
 import userapi.dto.UserDto;
+import userapi.exception.EmailExistsException;
+import userapi.exception.UserNotFoundException;
 
 import java.util.Scanner;
 
+@Profile("!test")
 @Component
 public class Console implements CommandLineRunner {
     private final Scanner scanner;
     private final static Logger logger = LoggerFactory.getLogger(Console.class);
-    private final RestTemplate restTemplate;
+    private final UserController userController;
     private final ApplicationContext applicationContext;
-    private final String BASE_URL = "http://localhost:8080/api/users";
 
-    public Console(RestTemplate restTemplate, ApplicationContext applicationContext) {
+    public Console(UserController userController, ApplicationContext applicationContext) {
+        this.userController = userController;
         this.applicationContext = applicationContext;
         this.scanner = new Scanner(System.in);
-        this.restTemplate = restTemplate;
+
     }
 
 
@@ -64,13 +68,15 @@ public class Console implements CommandLineRunner {
         UserDto newUser = builderUserDto();
 
         logger.info("Saving the user...");
-
-            UserDto createdUser = restTemplate.postForObject(BASE_URL, newUser, UserDto.class);
+        try {
+            UserDto createdUser = userController.createUser(newUser);
             printUser(createdUser);
-
+        } catch (EmailExistsException e) {
+            logger.error("Failed to create user: {}", e.getMessage());
+            throw e;
+        }
         logger.info("User added successfully. ID: \n");
     }
-
 
     private void getUserById() {
         System.out.print("Enter user ID to search: ");
@@ -78,10 +84,10 @@ public class Console implements CommandLineRunner {
 
         logger.info("Getting user by ID: '{}'...", id);
         try {
-            UserDto user = restTemplate.getForObject(BASE_URL + "/" + id, UserDto.class);
+            UserDto user = userController.getUserById(id);
             printUser(user);
             logger.info("User by ID: '{}' successfully retrieved \n", id);
-        } catch (Exception e) {
+        } catch (UserNotFoundException e) {
             logger.error("User not found");
         }
     }
@@ -93,8 +99,18 @@ public class Console implements CommandLineRunner {
         scanner.nextLine();
 
         logger.info("Changing user data by ID: '{}'...", id);
-        UserDto updatedUser = builderUserDto();
-        restTemplate.put(BASE_URL + "/" + id, updatedUser);
+
+        try {
+            UserDto updatedUser = builderUserDto();
+            userController.updateUser(id, updatedUser);
+            printUser(updatedUser);
+        } catch (EmailExistsException e) {
+            logger.error("Failed to update user: {}", e.getMessage());
+            throw e;
+        } catch (UserNotFoundException e) {
+            logger.error(e.getMessage());
+            throw e;
+        }
         logger.info("User data by ID: '{}' successfully changed \n", id);
     }
 
@@ -103,8 +119,13 @@ public class Console implements CommandLineRunner {
         long id = scanner.nextLong();
 
         logger.info("Deleting a user by ID: '{}'...", id);
-        restTemplate.delete(BASE_URL + "/" + id);
-        logger.info("User by ID: '{}' delete successfully \n", id);
+
+        try {
+            userController.deleteUser(id);
+            logger.info("User by ID: '{}' delete successfully \n", id);
+        } catch (UserNotFoundException e) {
+            logger.error(e.getMessage());
+        }
     }
 
     private UserDto builderUserDto() {
@@ -125,16 +146,14 @@ public class Console implements CommandLineRunner {
     }
 
     private void printUser(UserDto user) {
-        System.out.printf("ID: %d | Name: %s | Email: %s | Age: %d | Created: %s | Updated: %s%n",
+        System.out.printf("ID: %d | Name: %s | Email: %s | Age: %d",
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
-                user.getAge(),
-                user.getCreatedAt(),
-                user.getUpdatedAt());
+                user.getAge());
     }
 
-    private void exitApplication(){
+    private void exitApplication() {
         int exit = SpringApplication.exit(applicationContext, () -> 0);
         System.exit(exit);
     }

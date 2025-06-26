@@ -5,43 +5,50 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import userapi.exception.UserNotFoundException;
 import userapi.dto.UserDto;
+import userapi.exception.EmailExistsException;
+import userapi.exception.UserNotFoundException;
+import userapi.repository.UserRepository;
 import userapi.service.UserServiceImpl;
 
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(UserController.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
 public class UserControllerTest {
     @Autowired
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
     @MockitoBean
-    private UserServiceImpl userService;
-
-    private UserDto userDto;
+    private final UserServiceImpl userService;
+    @MockitoBean
+    private final UserRepository userRepository;
     private UserDto savedUserDto;
     private UserDto updatedUserDto;
     private Long userId = 1L;
 
-    @BeforeEach
-    void setUp(){
-        userDto = UserDto.builder()
-                .name("test")
-                .email("test@test.com")
-                .age(20)
-                .build();
+    @Autowired
+    public UserControllerTest(UserServiceImpl userService, UserRepository userRepository) {
+        this.userService = userService;
+        this.userRepository = userRepository;
+    }
 
+    @BeforeEach
+    void setUp() {
         savedUserDto = UserDto.builder()
                 .id(1L)
                 .name("test")
@@ -65,25 +72,35 @@ public class UserControllerTest {
 
     @Test
     void createUser_Success() throws Exception {
-        Mockito.when(userService.createUser(any(UserDto.class))).thenReturn(savedUserDto);
+        when(userRepository.existsByEmail(savedUserDto.getEmail())).thenReturn(false);
+        when(userService.createUser(any(UserDto.class))).thenReturn(savedUserDto);
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(savedUserDto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.name").value("test"))
+                .andExpect(jsonPath("$.email").value("test@test.com"))
+                .andExpect(jsonPath("$.age").value(20));
+    }
+
+    @Test
+    void createUser_ThrowEmailExistsException() throws Exception {
+        when(userService.createUser(any(UserDto.class))).thenThrow(new EmailExistsException());
 
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(userDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.name").value(userDto.getName()))
-                .andExpect(jsonPath("$.email").value(userDto.getEmail()))
-                .andExpect(jsonPath("$.age").value(userDto.getAge()));
+                        .content(objectMapper.writeValueAsString(savedUserDto)))
+                .andExpect(status().isConflict());
     }
 
     @Test
     void getUserById_Success() throws Exception {
-        Mockito.when(userService.getUserById(userId)).thenReturn(savedUserDto);
+        when(userService.getUserById(userId)).thenReturn(savedUserDto);
 
         mockMvc.perform(get("/api/users/{id}", userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(savedUserDto.getId()))
+                .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value(savedUserDto.getName()))
                 .andExpect(jsonPath("$.email").value(savedUserDto.getEmail()))
                 .andExpect(jsonPath("$.age").value(savedUserDto.getAge()));
@@ -91,16 +108,26 @@ public class UserControllerTest {
 
     @Test
     void updateUser_Success() throws Exception {
-        Mockito.when(userService.updateUser(eq(userId), any(UserDto.class))).thenReturn(updatedUserDto);
+        when(userService.updateUser(eq(userId), any(UserDto.class))).thenReturn(updatedUserDto);
 
         mockMvc.perform(put("/api/users/{id}", userId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(userDto)))
+                        .content(objectMapper.writeValueAsString(updatedUserDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.name").value(updatedUserDto.getName()))
-                .andExpect(jsonPath("$.email").value(updatedUserDto.getEmail()))
-                .andExpect(jsonPath("$.age").value(updatedUserDto.getAge()));
+                .andExpect(jsonPath("$.name").value("admin"))
+                .andExpect(jsonPath("$.email").value("admin@admin.com"))
+                .andExpect(jsonPath("$.age").value(30));
+    }
+
+    @Test
+    void updateUser_ThrowEmailExistsException() throws Exception {
+        when(userService.updateUser(eq(userId), any(UserDto.class))).thenThrow(new EmailExistsException());
+
+        mockMvc.perform(put("/api/users/{id}", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatedUserDto)))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -115,8 +142,7 @@ public class UserControllerTest {
     void getUserById_UserNotFoundException() throws Exception {
         Long userId = 9999L;
 
-        Mockito.when(userService.getUserById(userId))
-                .thenThrow(new UserNotFoundException(userId));
+        when(userService.getUserById(userId)).thenThrow(new UserNotFoundException(userId));
 
         mockMvc.perform(get("/api/users/{id}", userId))
                 .andExpect(status().isNotFound())

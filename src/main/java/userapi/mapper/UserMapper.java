@@ -12,10 +12,10 @@ public interface UserMapper {
     @Mapping(target = "updatedAt", ignore = true)
     User toEntity(UserDto userDto);
 
-//    @Mapping(source = "name", target = "name")
-//    @Mapping(source = "email", target = "email")
-//    @Mapping(source = "age", target = "age")
-//    @Mapping(source = "createdAt", target = "createdAt")
-//    @Mapping(source = "updatedAt", target = "updatedAt")
+    @Mapping(source = "name", target = "name")
+    @Mapping(source = "email", target = "email")
+    @Mapping(source = "age", target = "age")
+    @Mapping(source = "createdAt", target = "createdAt")
+    @Mapping(source = "updatedAt", target = "updatedAt")
     UserDto toDto(User user);
 }
