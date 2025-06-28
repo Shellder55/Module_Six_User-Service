@@ -71,11 +71,11 @@ public class Console implements CommandLineRunner {
         try {
             UserDto createdUser = userController.createUser(newUser);
             printUser(createdUser);
+            logger.info("User added successfully. ID: \n");
         } catch (EmailExistsException e) {
             logger.error("Failed to create user: {}", e.getMessage());
             throw e;
         }
-        logger.info("User added successfully. ID: \n");
     }
 
     private void getUserById() {
@@ -89,6 +89,7 @@ public class Console implements CommandLineRunner {
             logger.info("User by ID: '{}' successfully retrieved \n", id);
         } catch (UserNotFoundException e) {
             logger.error("User not found");
+            throw e;
         }
     }
 
@@ -125,6 +126,7 @@ public class Console implements CommandLineRunner {
             logger.info("User by ID: '{}' delete successfully \n", id);
         } catch (UserNotFoundException e) {
             logger.error(e.getMessage());
+            throw e;
         }
     }
 
