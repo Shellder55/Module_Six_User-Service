@@ -1,4 +1,4 @@
-package userapi.exception;
+package userapi.handler.exception;
 
 public class UserNotFoundException extends RuntimeException {
     public UserNotFoundException(Long id) {

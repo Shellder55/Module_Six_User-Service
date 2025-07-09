@@ -12,9 +12,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import userapi.dto.UserDto;
-import userapi.exception.EmailExistsException;
-import userapi.exception.UserNotFoundException;
-import userapi.repository.UserRepository;
+import userapi.handler.exception.EmailExistsException;
+import userapi.handler.exception.UserNotFoundException;
 import userapi.service.UserServiceImpl;
 
 import java.time.LocalDateTime;
@@ -35,16 +34,13 @@ public class UserControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private final UserServiceImpl userService;
-    @MockitoBean
-    private final UserRepository userRepository;
     private UserDto savedUserDto;
     private UserDto updatedUserDto;
     private Long userId = 1L;
 
     @Autowired
-    public UserControllerTest(UserServiceImpl userService, UserRepository userRepository) {
+    public UserControllerTest(UserServiceImpl userService) {
         this.userService = userService;
-        this.userRepository = userRepository;
     }
 
     @BeforeEach
@@ -72,7 +68,6 @@ public class UserControllerTest {
 
     @Test
     void createUser_Success() throws Exception {
-        when(userRepository.existsByEmail(savedUserDto.getEmail())).thenReturn(false);
         when(userService.createUser(any(UserDto.class))).thenReturn(savedUserDto);
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)

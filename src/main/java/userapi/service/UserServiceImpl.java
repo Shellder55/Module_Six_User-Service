@@ -4,10 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import userapi.dto.UserDto;
-import userapi.exception.EmailExistsException;
-import userapi.exception.UserNotFoundException;
+import userapi.handler.exception.EmailExistsException;
+import userapi.handler.exception.UserNotFoundException;
 import userapi.mapper.UserMapper;
 import userapi.model.User;
+import userapi.producer.KafkaProducer;
 import userapi.repository.UserRepository;
 
 @Service
@@ -17,13 +18,17 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final KafkaProducer kafkaProducer;
 
     @Override
     public UserDto createUser(UserDto userDto) {
         User user = userMapper.toEntity(userDto);
         if (userRepository.existsByEmail(userDto.getEmail())) throw new EmailExistsException();
 
-        return userMapper.toDto(userRepository.save(user));
+        UserDto savedUser = userMapper.toDto(userRepository.save(user));
+
+        kafkaProducer.sendUser("USER_CREATED", savedUser.getEmail());
+        return savedUser;
     }
 
     @Override
@@ -46,7 +51,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(Long id) {
-        User idUser = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
-        userRepository.deleteById(idUser.getId());
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        kafkaProducer.sendUser("USER_DELETED", user.getEmail());
+        userRepository.deleteById(user.getId());
     }
 }

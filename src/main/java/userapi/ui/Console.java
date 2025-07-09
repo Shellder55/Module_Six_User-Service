@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import userapi.controller.UserController;
 import userapi.dto.UserDto;
-import userapi.exception.EmailExistsException;
-import userapi.exception.UserNotFoundException;
+import userapi.handler.exception.EmailExistsException;
+import userapi.handler.exception.UserNotFoundException;
 
 import java.util.Scanner;
 
@@ -28,7 +28,6 @@ public class Console implements CommandLineRunner {
         this.scanner = new Scanner(System.in);
 
     }
-
 
     @Override
     public void run(String... args) {
@@ -89,7 +88,6 @@ public class Console implements CommandLineRunner {
             logger.info("User by ID: '{}' successfully retrieved \n", id);
         } catch (UserNotFoundException e) {
             logger.error("User not found");
-            throw e;
         }
     }
 
@@ -126,7 +124,6 @@ public class Console implements CommandLineRunner {
             logger.info("User by ID: '{}' delete successfully \n", id);
         } catch (UserNotFoundException e) {
             logger.error(e.getMessage());
-            throw e;
         }
     }
 
@@ -148,7 +145,7 @@ public class Console implements CommandLineRunner {
     }
 
     private void printUser(UserDto user) {
-        System.out.printf("ID: %d | Name: %s | Email: %s | Age: %d",
+        System.out.printf("ID: %d | Name: %s | Email: %s | Age: %d\n",
                 user.getId(),
                 user.getName(),
                 user.getEmail(),

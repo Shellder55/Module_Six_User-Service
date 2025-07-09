@@ -7,10 +7,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import userapi.dto.UserDto;
-import userapi.exception.EmailExistsException;
-import userapi.exception.UserNotFoundException;
+import userapi.handler.exception.EmailExistsException;
+import userapi.handler.exception.UserNotFoundException;
 import userapi.mapper.UserMapper;
 import userapi.model.User;
+import userapi.producer.KafkaProducer;
 import userapi.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,8 @@ public class UserServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private KafkaProducer kafkaProducer;
     @InjectMocks
     private UserServiceImpl userService;
     private User user;
@@ -72,6 +75,7 @@ public class UserServiceImplTest {
         assertEquals(userDto, savedUser);
         verify(userRepository, times(1)).existsByEmail(userDto.getEmail());
         verify(userRepository, times(1)).save(user);
+        verify(kafkaProducer, times(1)).sendUser(anyString(), anyString());
     }
 
     @Test
@@ -143,6 +147,7 @@ public class UserServiceImplTest {
         userService.deleteUser(userId);
         verify(userRepository, times(1)).findById(userId);
         verify(userRepository, times(1)).deleteById(userId);
+        verify(kafkaProducer, times(1)).sendUser(anyString(),anyString());
     }
 
     @Test

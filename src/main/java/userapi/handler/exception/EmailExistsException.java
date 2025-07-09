@@ -1,4 +1,4 @@
-package userapi.exception;
+package userapi.handler.exception;
 
 public class EmailExistsException extends RuntimeException {
     public EmailExistsException() {
