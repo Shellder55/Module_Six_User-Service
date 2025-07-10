@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.RepresentationModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +16,12 @@ import userapi.dto.ErrorResponse;
 import userapi.dto.UserDto;
 import userapi.service.UserServiceImpl;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 @RestController
 @RequestMapping("/api/users")
-@Tag(name = "User API", description = "Api для работы с пользователями")
+@Tag(name = "User API", description = "Api для работы с пользователями. Поддерживает CRUD операции и отправку event в Kafka")
 public class UserController {
     private final UserServiceImpl userService;
 
@@ -60,9 +65,12 @@ public class UserController {
                     )
             )
     })
-    public ResponseEntity<UserDto> createUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<EntityModel<UserDto>> createUser(@RequestBody UserDto userDto) {
         UserDto user = userService.createUser(userDto);
-        return ResponseEntity.ok(user);
+        EntityModel<UserDto> entityModel = getUserDtoEntityModel(user);
+
+        return ResponseEntity.created(linkTo(methodOn(UserController.class).getUserById(user.getId())).toUri())
+                .body(entityModel);
     }
 
     @GetMapping("/{id}")
@@ -92,9 +100,11 @@ public class UserController {
                     )
             )
     })
-    public ResponseEntity<UserDto> getUserById(@PathVariable Long id) {
+    public ResponseEntity<EntityModel<UserDto>> getUserById(@PathVariable Long id) {
         UserDto user = userService.getUserById(id);
-        return ResponseEntity.ok(user);
+        EntityModel<UserDto> entityModel = getUserDtoEntityModel(user);
+
+        return ResponseEntity.ok(entityModel);
     }
 
     @PutMapping("/{id}/update")
@@ -131,9 +141,11 @@ public class UserController {
                     )
             )
     })
-    public ResponseEntity<UserDto> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
+    public ResponseEntity<EntityModel<UserDto>> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
         UserDto user = userService.updateUser(id, userDto);
-        return ResponseEntity.ok(user);
+        EntityModel<UserDto> entityModel = getUserDtoEntityModel(user);
+
+        return ResponseEntity.ok(entityModel);
     }
 
     @DeleteMapping("/{id}/delete")
@@ -147,8 +159,19 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = "Пользователь не найден."),
             @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера.")
     })
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<RepresentationModel<?>> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
-        return ResponseEntity.ok().build();
+        RepresentationModel<?> representationModel = new RepresentationModel<>();
+        representationModel.add(linkTo(methodOn(UserController.class).createUser(null)).withRel("create-user"));
+
+        return ResponseEntity.ok(representationModel);
+    }
+
+    private static EntityModel<UserDto> getUserDtoEntityModel(UserDto user) {
+        EntityModel<UserDto> entityModel = EntityModel.of(user);
+        entityModel.add(linkTo(methodOn(UserController.class).getUserById(user.getId())).withSelfRel());
+        entityModel.add(linkTo(methodOn(UserController.class).updateUser(user.getId(), user)).withRel("update"));
+        entityModel.add(linkTo(methodOn(UserController.class).deleteUser(user.getId())).withRel("delete"));
+        return entityModel;
     }
 }

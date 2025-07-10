@@ -6,6 +6,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Profile;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import userapi.controller.UserController;
@@ -69,7 +70,7 @@ public class Console implements CommandLineRunner {
 
         logger.info("Saving the user...");
         try {
-            ResponseEntity<UserDto> response = userController.createUser(newUser);
+            ResponseEntity<EntityModel<UserDto>> response = userController.createUser(newUser);
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.info("User added successfully. ID: \n");
             } else {
@@ -87,9 +88,9 @@ public class Console implements CommandLineRunner {
 
         logger.info("Getting user by ID: '{}'...", id);
         try {
-            ResponseEntity<UserDto> response = userController.getUserById(id);
+            ResponseEntity<EntityModel<UserDto>> response = userController.getUserById(id);
             if (response.getStatusCode().is2xxSuccessful()) {
-                UserDto user = response.getBody();
+                UserDto user = response.getBody().getContent();
                 printUser(user);
                 logger.info("User by ID: '{}' successfully retrieved \n", id);
             }
@@ -107,9 +108,9 @@ public class Console implements CommandLineRunner {
 
         try {
             UserDto updatedUser = builderUserDto();
-            ResponseEntity<UserDto> response = userController.updateUser(id, updatedUser);
+            ResponseEntity<EntityModel<UserDto>> response = userController.updateUser(id, updatedUser);
             if (response.getStatusCode().is2xxSuccessful()) {
-                UserDto user = response.getBody();
+                UserDto user = response.getBody().getContent();
                 printUser(user);
                 logger.info("User data by ID: '{}' successfully changed \n", id);
             }
