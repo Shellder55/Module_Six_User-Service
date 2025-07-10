@@ -6,6 +6,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import userapi.controller.UserController;
 import userapi.dto.UserDto;
@@ -68,9 +69,12 @@ public class Console implements CommandLineRunner {
 
         logger.info("Saving the user...");
         try {
-            UserDto createdUser = userController.createUser(newUser);
-            printUser(createdUser);
-            logger.info("User added successfully. ID: \n");
+            ResponseEntity<UserDto> response = userController.createUser(newUser);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                logger.info("User added successfully. ID: \n");
+            } else {
+                logger.error("Failed to create user: {}", response.getBody());
+            }
         } catch (EmailExistsException e) {
             logger.error("Failed to create user: {}", e.getMessage());
             throw e;
@@ -83,14 +87,16 @@ public class Console implements CommandLineRunner {
 
         logger.info("Getting user by ID: '{}'...", id);
         try {
-            UserDto user = userController.getUserById(id);
-            printUser(user);
-            logger.info("User by ID: '{}' successfully retrieved \n", id);
+            ResponseEntity<UserDto> response = userController.getUserById(id);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                UserDto user = response.getBody();
+                printUser(user);
+                logger.info("User by ID: '{}' successfully retrieved \n", id);
+            }
         } catch (UserNotFoundException e) {
             logger.error("User not found");
         }
     }
-
 
     private void updateUser() {
         System.out.print("Enter user ID to change: ");
@@ -101,8 +107,12 @@ public class Console implements CommandLineRunner {
 
         try {
             UserDto updatedUser = builderUserDto();
-            userController.updateUser(id, updatedUser);
-            printUser(updatedUser);
+            ResponseEntity<UserDto> response = userController.updateUser(id, updatedUser);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                UserDto user = response.getBody();
+                printUser(user);
+                logger.info("User data by ID: '{}' successfully changed \n", id);
+            }
         } catch (EmailExistsException e) {
             logger.error("Failed to update user: {}", e.getMessage());
             throw e;
@@ -110,7 +120,6 @@ public class Console implements CommandLineRunner {
             logger.error(e.getMessage());
             throw e;
         }
-        logger.info("User data by ID: '{}' successfully changed \n", id);
     }
 
     private void deleteUser() {
